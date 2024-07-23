@@ -128,3 +128,6 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# my custom api key file container for PL_API_KEY to use on client side. DO NOT USE THIS APPROACH without a reverse proxy
+PL_API_KEY.js

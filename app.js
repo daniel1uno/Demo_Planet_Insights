@@ -9,7 +9,8 @@ require([
   "esri/core/reactiveUtils",
   "esri/layers/WMTSLayer",
   "esri/widgets/LayerList",
-  "esri/widgets/Swipe"
+  "esri/widgets/Swipe",
+  "PL_API_KEY.js" // this file is, of course, ignired by git 
 ], function (
   Map,
   MapView,
@@ -21,7 +22,8 @@ require([
   reactiveUtils,
   WMTSLayer,
   LayerList,
-  Swipe
+  Swipe,
+  PlanetAPIKey // the hway im importing my key is NOT a good practice
 ) {
   const map = new Map({
     basemap: "streets-navigation-vector",
@@ -185,6 +187,7 @@ require([
             miscellaneous.proccessStatisticsData(statisticsData);
           // Generate chart with processed data
           miscellaneous.generateChart(labels, meanData, p10Data, p90Data);
+          miscellaneous.addWmtsLayer(view, indexSelect, '2024-06-01/2024-07-22',aoiGeometry) // hard coded timerange
         } catch (error) {
           console.error("Error fetching statistics:", error);
         } finally {
@@ -278,7 +281,8 @@ require([
 
             const pastBasemapId = `global_monthly_${pastYear}_${pastMonth}_mosaic`;
 
-            const planetApiKey = "";
+            // NEVER USE THIS APPROACH without a reverse proxy, the key will be exposed in wmts requests
+            const planetApiKey =  PlanetAPIKey.myExtraSecretAPIKey; 
             const custom_params = {
               api_key: planetApiKey,
             };
@@ -336,11 +340,15 @@ require([
             ],
             actions: [addBaseMapAction],
           };
-
+         
           const geojsonLayer = new GeoJSONLayer({
             url: url,
             title: `Planet analytics layer`,
             popupTemplate: popupTemplate,
+            renderer:{
+              type: "simple",
+              symbol: miscellaneous.analyticsSymbol
+            }
           });
 
           map.add(geojsonLayer);
