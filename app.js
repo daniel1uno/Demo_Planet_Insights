@@ -10,7 +10,7 @@ require([
   "esri/layers/WMTSLayer",
   "esri/widgets/LayerList",
   "esri/widgets/Swipe",
-  "PL_API_KEY.js" // this file is, of course, ignired by git 
+  "PL_API_KEY.js", // this file is, of course, ignored by git
 ], function (
   Map,
   MapView,
@@ -23,7 +23,7 @@ require([
   WMTSLayer,
   LayerList,
   Swipe,
-  PlanetAPIKey // the hway im importing my key is NOT a good practice
+  PlanetAPIKey // the way im importing my key is NOT a good practice
 ) {
   const map = new Map({
     basemap: "streets-navigation-vector",
@@ -32,33 +32,25 @@ require([
   const view = new MapView({
     container: "viewDiv",
     map: map,
-    center: [-74.297333, 4.570868], // Longitude, latitude (centered in Colombia)
-    zoom: 5,
+    center: [-74.29, 4.57], //centered in Colombia
+    zoom: 6,
   });
 
   let layerList = new LayerList({
     view: view,
   });
-  
+
   view.ui.add(layerList, {
     position: "top-left",
   });
 
-  const graphicsLayer = new GraphicsLayer({listMode:"hide"});
+  const graphicsLayer = new GraphicsLayer({ listMode: "hide" });
   map.add(graphicsLayer);
 
   const sketchViewModel = new SketchViewModel({
     view: view,
     layer: graphicsLayer,
-    polygonSymbol: {
-      type: "simple-fill",
-      color: [150, 150, 150, 0.5],
-      style: "solid",
-      outline: {
-        color: "white",
-        width: 1,
-      },
-    },
+    polygonSymbol: miscellaneous.graphicsSymbol,
   });
 
   const drawAoiButton = document.createElement("button");
@@ -156,8 +148,8 @@ require([
                 of: "P1M",
                 lastIntervalBehavior: "SHORTEN",
               },
-              resx: 10,
-              resy: 10,
+              resx: 30, // resolution in meters
+              resy: 30,
               evalscript: evalScript,
             },
             calculations: {
@@ -187,7 +179,20 @@ require([
             miscellaneous.proccessStatisticsData(statisticsData);
           // Generate chart with processed data
           miscellaneous.generateChart(labels, meanData, p10Data, p90Data);
-          miscellaneous.addWmtsLayer(view, indexSelect, '2024-06-01/2024-07-22',aoiGeometry) // hard coded timerange
+          const intervals = miscellaneous.generateDateIntervals(
+            startDate,
+            endDate
+          );
+          console.log(intervals);
+          intervals.forEach(
+            async (interval) =>
+              await miscellaneous.addWmtsLayer(
+                view,
+                indexSelect,
+                interval,
+                aoiGeometry
+              )
+          );
         } catch (error) {
           console.error("Error fetching statistics:", error);
         } finally {
@@ -216,7 +221,6 @@ require([
       );
       const response = await planetResponse.json();
       const data = response.data;
-      console.log(data);
 
       // Create a select element
       const selectElement = document.getElementById("subscriptionsSelect");
@@ -277,12 +281,12 @@ require([
             pastDate.setMonth(pastDate.getMonth() - 6);
 
             const pastYear = pastDate.getFullYear();
-            const pastMonth = String(pastDate.getMonth() + 1).padStart(2, '0'); // two digits month
+            const pastMonth = String(pastDate.getMonth() + 1).padStart(2, "0"); // two digits month
 
             const pastBasemapId = `global_monthly_${pastYear}_${pastMonth}_mosaic`;
 
             // NEVER USE THIS APPROACH without a reverse proxy, the key will be exposed in wmts requests
-            const planetApiKey =  PlanetAPIKey.myExtraSecretAPIKey; 
+            const planetApiKey = PlanetAPIKey.myExtraSecretAPIKey;
             const custom_params = {
               api_key: planetApiKey,
             };
@@ -311,10 +315,9 @@ require([
               leadingLayers: [wmtsLayer],
               trailingLayers: [wmtsLayerPast],
               direction: "vertical", // swipe widget will move from top to bottom of view
-              position: 50 // position set to middle of the view (50%)
+              position: 50, // position set to middle of the view (50%)
             });
             view.ui.add(swipe);
-
           }
 
           const addBaseMapAction = {
@@ -340,15 +343,15 @@ require([
             ],
             actions: [addBaseMapAction],
           };
-         
+
           const geojsonLayer = new GeoJSONLayer({
             url: url,
             title: `Planet analytics layer`,
             popupTemplate: popupTemplate,
-            renderer:{
+            renderer: {
               type: "simple",
-              symbol: miscellaneous.analyticsSymbol
-            }
+              symbol: miscellaneous.analyticsSymbol,
+            },
           });
 
           map.add(geojsonLayer);

@@ -92,7 +92,7 @@ define([
     const customParameters = {
       TIME: timeRange,
       FORMAT: "image/png",
-      srsName: 'EPSG:3857',
+      srsName: "EPSG:3857",
     };
 
     if (geometry && geometry.length > 0) {
@@ -102,12 +102,13 @@ define([
     }
     const createAndAddLayer = async (layerId, customParams) => {
       const layer = new WMTSLayer({
-        url: 'https://services.sentinel-hub.com/ogc/wmts/52637ca1-05fe-41df-b380-db2f87634c51', // url to the service
+        url: "https://services.sentinel-hub.com/ogc/wmts/52637ca1-05fe-41df-b380-db2f87634c51", // url to the service
         activeLayer: {
           id: layerId,
         },
         customParameters: customParams,
         visible: true,
+        title: `${subLayerName}: ${timeRange}`
       });
 
       await layer.load();
@@ -119,12 +120,10 @@ define([
     await createAndAddLayer(subLayerName, customParameters);
   }
   function arrayToWktPolygon(coordinates) {
-    console.log(coordinates)
     // Map the array of coordinate pairs to a string with x and y separated by a space
     const formattedCoords = coordinates[0]
       .map((pair) => pair.join(" "))
       .join(", ");
-    console.log(formattedCoords)
     // Format the string as a WKT polygon
     const wktPolygon = `POLYGON ((${formattedCoords}))`;
 
@@ -135,16 +134,73 @@ define([
     type: "simple-fill",
     color: [0, 0, 0, 0], // No fill
     outline: {
-        color: [0, 0, 0], // Black
-        width: 2
-    }
+      color: "black",
+      width: 2,
+    },
   };
 
+  const graphicsSymbol = {
+    type: "simple-fill",
+    color: [0, 0, 0, 0], // No fill
+    style: "solid",
+    outline: {
+      color: "red",
+      width: 1,
+    },
+  };
+
+  function validateAOI(polygon) {}
+
+  function generateDateIntervals(startDate, endDate) {
+    console.log(`the input were : ${startDate}, and ${endDate}`)
+    // Helper function to add a month to a date
+    function addMonth(date) {
+      const newDate = new Date(date);
+      newDate.setMonth(newDate.getMonth() + 1);
+      return newDate;
+  }
+
+  // Helper function to format a date as 'YYYY-MM-DD'
+  function formatDate(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+  }
+
+  // Convert input dates to Date objects
+  let currentDate = new Date(startDate);
+  currentDate.setDate(currentDate.getDate()+ 1)
+
+  const finalDate = new Date(endDate);
+
+  console.log(`initial date : ${currentDate}`)
+  console.log(`final date : ${finalDate}`)
+  // Initialize the result array
+  const intervals = [];
+
+  // Generate date intervals
+  while (currentDate < finalDate) {
+      const nextDate = addMonth(currentDate);
+      console.log(`next date: ${nextDate}`)
+      if (nextDate > finalDate) {
+          intervals.push(`${formatDate(currentDate)}/${formatDate(finalDate)}`);
+      } else {
+          intervals.push(`${formatDate(currentDate)}/${formatDate(nextDate)}`);
+      }
+      currentDate = new Date(nextDate);
+      // currentDate.setDate(currentDate.getDate() + 1); // Move to the next day to start new interval
+  }
+
+  return intervals;
+  }
   return {
     generateChart,
     proccessStatisticsData,
     makeDialogDraggable,
     addWmtsLayer,
-    analyticsSymbol : analyticsSymbol
+    analyticsSymbol: analyticsSymbol,
+    graphicsSymbol: graphicsSymbol,
+    generateDateIntervals,
   };
 });
