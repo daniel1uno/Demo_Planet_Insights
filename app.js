@@ -10,6 +10,8 @@ require([
   "esri/layers/WMTSLayer",
   "esri/widgets/LayerList",
   "esri/widgets/Swipe",
+  "esri/widgets/Legend",
+  "esri/TimeExtent",
   "PL_API_KEY.js", // this file is, of course, ignored by git
 ], function (
   Map,
@@ -23,6 +25,8 @@ require([
   WMTSLayer,
   LayerList,
   Swipe,
+  Legend,
+  TimeExtent,
   PlanetAPIKey // the way im importing my key is NOT a good practice
 ) {
   const map = new Map({
@@ -34,16 +38,85 @@ require([
     map: map,
     center: [-74.29, 4.57], //centered in Colombia
     zoom: 6,
+    padding: {
+      left: 49
+    }
+  });
+  view.ui.move("zoom", "bottom-right");
+
+  const layerList = new LayerList({
+    view,
+    dragEnabled: true,
+    visibilityAppearance: "checkbox",
+    container: "layers-container",
+    listItemCreatedFunction: defineActions
+  });
+  
+  const legend = new Legend({
+    view,
+    container: "legend-container"
   });
 
-  let layerList = new LayerList({
-    view: view,
+  function defineActions(event){
+    const item = event.item;
+    item.actionsSections = [
+      [
+        {
+          title: "Eliminar",
+          icon: "trash",
+          id: "delete-layer"
+        },
+      ]
+    ];
+  }
+
+  layerList.on("trigger-action", async (event) => {    
+    // Capture the action id.
+    const id = event.action.id;
+    const layer = event.item.layer
+    if (id === "delete-layer") {
+      map.remove(layer)
+      console.log(`layer ${layer.title} was removed`)
+    } 
   });
 
-  view.ui.add(layerList, {
-    position: "top-left",
-  });
 
+  view.when(() => {
+    let activeWidget;
+
+    const handleActionBarClick = ({ target }) => {
+     
+      if (target.tagName !== "CALCITE-ACTION") {
+        return;
+      }
+
+      if (activeWidget) {
+        document.querySelector(`[data-action-id=${activeWidget}]`).active = false;
+        document.querySelector(`[data-panel-id=${activeWidget}]`).hidden = true;
+      }
+
+      const nextWidget = target.dataset.actionId;
+      if (nextWidget !== activeWidget) {
+        document.querySelector(`[data-action-id=${nextWidget}]`).active = true;
+        document.querySelector(`[data-panel-id=${nextWidget}]`).hidden = false;
+        activeWidget = nextWidget;
+      } else {
+        activeWidget = null;
+      }
+    };
+
+    document.querySelector("calcite-action-bar").addEventListener("click", handleActionBarClick);
+    let actionBarExpanded = false;
+
+        document.addEventListener("calciteActionBarToggle", event => {
+          actionBarExpanded = !actionBarExpanded;
+          view.padding = {
+            left: actionBarExpanded ? 135 : 49
+          };
+        });
+
+  });
+  
   const graphicsLayer = new GraphicsLayer({ listMode: "hide" });
   map.add(graphicsLayer);
 
@@ -52,22 +125,11 @@ require([
     layer: graphicsLayer,
     polygonSymbol: miscellaneous.graphicsSymbol,
   });
-
-  const drawAoiButton = document.createElement("button");
-  drawAoiButton.className = "custom-button";
-  drawAoiButton.innerHTML = `<calcite-icon icon="polygon" scale="s"></calcite-icon><span>Dibujar AOI</span>`;
-  view.ui.add(drawAoiButton, "top-right");
-
-  const timeSeriesButton = document.createElement("button");
-  timeSeriesButton.className = "custom-button";
-  timeSeriesButton.innerHTML = `<calcite-icon icon="graph-time-series" scale="s"></calcite-icon><span>Series de tiempo</span>`;
-  timeSeriesButton.disabled = true;
-  view.ui.add(timeSeriesButton, "top-right");
-
-  const subsButton = document.createElement("button");
-  subsButton.className = "custom-button";
-  subsButton.innerHTML = `<calcite-icon icon="satellite-0" scale="s"></calcite-icon><span>Planet Analytics</span>`;
-  view.ui.add(subsButton, "top-right");
+  // Add buttons to map view
+  const drawAoiButton = document.getElementById("drawButton");
+  const timeSeriesButton = document.getElementById("timeSeriesButton");
+  const subsButton = document.getElementById("planetSubsButton");
+  view.ui.add([drawAoiButton, timeSeriesButton, subsButton], "top-right");
 
   let aoiGeometry;
 
@@ -82,6 +144,8 @@ require([
       if (event.state === "complete") {
         timeSeriesButton.disabled = false;
         aoiGeometry = event.graphic.geometry.rings;
+        miscellaneous.validateAOI(event.graphic.geometry);
+        console.log(aoiGeometry)
       }
     });
   });
@@ -93,16 +157,13 @@ require([
     dialog.style.display = "block";
     miscellaneous.makeDialogDraggable(dialog, dialogHeader);
 
-    // Add event listeners for the buttons
+    // Add event listeners for the button
     document
       .getElementById("generateChartButton")
       .addEventListener("click", async () => {
         generateChartButton.disabled = true;
-        const icon = generateChartButton.querySelector("calcite-icon");
-        const originalIcon = icon.getAttribute("icon");
-        icon.setAttribute("icon", "spinner");
-        icon.setAttribute("active", "true");
-
+        const loader = document.getElementById("chartLoader")
+        loader.hidden = false;
         try {
           const indexSelect = document.getElementById("indexSelect").value;
           const evalScript = evalScripts[indexSelect];
@@ -183,7 +244,6 @@ require([
             startDate,
             endDate
           );
-          console.log(intervals);
           intervals.forEach(
             async (interval) =>
               await miscellaneous.addWmtsLayer(
@@ -193,11 +253,16 @@ require([
                 aoiGeometry
               )
           );
+          console.log(`startDate:${startDate}, endDate :  ${endDate}`)
+          const timeExtent = new TimeExtent({
+            start: new Date(startDate),
+            end: new Date(endDate)
+          });
+          miscellaneous.addTimeSlider(timeExtent, view)
         } catch (error) {
           console.error("Error fetching statistics:", error);
         } finally {
-          icon.setAttribute("icon", originalIcon);
-          icon.removeAttribute("active");
+          loader.hidden = true
           generateChartButton.disabled = false;
         }
       });
@@ -222,8 +287,10 @@ require([
       const response = await planetResponse.json();
       const data = response.data;
 
-      // Create a select element
       const selectElement = document.getElementById("subscriptionsSelect");
+
+      // Clear existing options in the select element
+      selectElement.innerHTML = "";
 
       // Populate the select element with options
       data.forEach((item) => {
@@ -346,7 +413,7 @@ require([
 
           const geojsonLayer = new GeoJSONLayer({
             url: url,
-            title: `Planet analytics layer`,
+            title: `Planet analytics results`,
             popupTemplate: popupTemplate,
             renderer: {
               type: "simple",
@@ -362,7 +429,6 @@ require([
             () => view.popup,
             "trigger-action",
             (event) => {
-              // Execute the measureThis() function if the measure-this action is clicked
               if (event.action.id === "addDetectionBasemap") {
                 addDetectionBasemap();
               }

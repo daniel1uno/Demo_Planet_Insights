@@ -1,7 +1,10 @@
 define([
   "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js",
   "esri/layers/WMTSLayer",
-], function (Chart, WMTSLayer) {
+  "esri/TimeExtent",
+  "esri/widgets/TimeSlider",
+  "esri/geometry/geometryEngine",
+], function (Chart, WMTSLayer, TimeExtent, TimeSlider, geometryEngine) {
   function generateChart(labels, meanData, p10Data, p90Data) {
     // Destroy current chart if it exists
     if (window.myChart) {
@@ -12,6 +15,7 @@ define([
     const processedLabels = labels.map((label) => label.split("T")[0]);
 
     const ctx = document.getElementById("timeSeriesChart").getContext("2d");
+    ctx.hidden = false;
     window.myChart = new Chart(ctx, {
       type: "line",
       data: {
@@ -100,20 +104,28 @@ define([
       customParameters["GEOMETRY"] = aoi;
       customParameters["TRANSPARENT"] = true;
     }
+    let [startDate, endDate] = timeRange.split("/");
+    const timeExtent = new TimeExtent({
+      start: new Date(startDate),
+      end: new Date(endDate),
+    });
+
     const createAndAddLayer = async (layerId, customParams) => {
       const layer = new WMTSLayer({
-        url: "https://services.sentinel-hub.com/ogc/wmts/52637ca1-05fe-41df-b380-db2f87634c51", // url to the service
+        url: "https://services.sentinel-hub.com/ogc/wmts/c81e0966-8e7c-4f23-951c-04a33a8c72a7?", // url to the service
         activeLayer: {
           id: layerId,
         },
         customParameters: customParams,
         visible: true,
-        title: `${subLayerName}: ${timeRange}`
+        title: `${subLayerName}: ${timeRange}`,
+        visibilityTimeExtent: timeExtent,
       });
 
       await layer.load();
       view.map.add(layer, 0); // add the layer at index 0, i.e., on top of basemap
       layer.id = `${layerId}_${timeRange}`; // Setting a unique id for the layer
+
       return layer;
     };
 
@@ -149,50 +161,68 @@ define([
     },
   };
 
-  function validateAOI(polygon) {}
+  function validateAOI(polygon) {
+    const geodesicArea = geometryEngine.geodesicArea(
+      polygon,
+      "square-kilometers"
+    );
+    const planarArea = geometryEngine.planarArea(polygon, "square-kilometers");
+    console.log(`geodesic area: ${geodesicArea}, planar area: ${planarArea}`);
+  }
 
   function generateDateIntervals(startDate, endDate) {
-    console.log(`the input were : ${startDate}, and ${endDate}`)
     // Helper function to add a month to a date
     function addMonth(date) {
       const newDate = new Date(date);
       newDate.setMonth(newDate.getMonth() + 1);
+      newDate.setDate(newDate.getDate() - 1);
       return newDate;
-  }
+    }
 
-  // Helper function to format a date as 'YYYY-MM-DD'
-  function formatDate(date) {
+    // Helper function to format a date as 'YYYY-MM-DD'
+    function formatDate(date) {
       const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
       return `${year}-${month}-${day}`;
-  }
+    }
 
-  // Convert input dates to Date objects
-  let currentDate = new Date(startDate);
-  currentDate.setDate(currentDate.getDate()+ 1)
+    // Convert input dates to Date objects
+    let currentDate = new Date(startDate);
+    currentDate.setDate(currentDate.getDate() + 1);
 
-  const finalDate = new Date(endDate);
+    const finalDate = new Date(endDate);
 
-  console.log(`initial date : ${currentDate}`)
-  console.log(`final date : ${finalDate}`)
-  // Initialize the result array
-  const intervals = [];
+    // Initialize the result array
+    const intervals = [];
 
-  // Generate date intervals
-  while (currentDate < finalDate) {
+    // Generate date intervals
+    while (currentDate < finalDate) {
       const nextDate = addMonth(currentDate);
-      console.log(`next date: ${nextDate}`)
+
       if (nextDate > finalDate) {
-          intervals.push(`${formatDate(currentDate)}/${formatDate(finalDate)}`);
+        intervals.push(`${formatDate(currentDate)}/${formatDate(finalDate)}`);
       } else {
-          intervals.push(`${formatDate(currentDate)}/${formatDate(nextDate)}`);
+        intervals.push(`${formatDate(currentDate)}/${formatDate(nextDate)}`);
       }
       currentDate = new Date(nextDate);
-      // currentDate.setDate(currentDate.getDate() + 1); // Move to the next day to start new interval
+      currentDate.setDate(currentDate.getDate() + 1); // Move to the next day to start new interval
+    }
+
+    return intervals;
   }
 
-  return intervals;
+  function addTimeSlider(timeExtent, view) {
+    console.log(timeExtent.start);
+    console.log(timeExtent.end);
+    const timeSlider = new TimeSlider({
+      container: "timeSliderDiv",
+      view: view,
+      mode: "time-window",
+      fullTimeExtent: timeExtent,
+      timeExtent: timeExtent,
+      container: "timeExtent-container",
+    });
   }
   return {
     generateChart,
@@ -202,5 +232,7 @@ define([
     analyticsSymbol: analyticsSymbol,
     graphicsSymbol: graphicsSymbol,
     generateDateIntervals,
+    addTimeSlider,
+    validateAOI,
   };
 });

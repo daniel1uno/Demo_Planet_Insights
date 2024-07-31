@@ -6,15 +6,59 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ArcGIS MapView App</title>
   <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="https://js.arcgis.com/4.27/esri/themes/light/main.css" />
-  <link rel="stylesheet" href="https://unpkg.com/@esri/calcite-components@1.0.0-beta.82/dist/calcite/calcite.css" />
-  <script src="https://js.arcgis.com/4.27/"></script>
-  <script type="module"
-    src="https://unpkg.com/@esri/calcite-components@1.0.0-beta.82/dist/calcite/calcite.esm.js"></script>
+  <script src="https://js.arcgis.com/calcite-components/2.10.1/calcite.esm.js" type="module"></script>
+  <link rel="stylesheet" href="https://js.arcgis.com/calcite-components/2.10.1/calcite.css" />
+
+  <script src="https://js.arcgis.com/4.30/"></script>
+  <link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css" />
 </head>
 
 <body>
-  <div id="viewDiv"></div>
+  <calcite-shell content-behind>
+    <calcite-shell-panel slot="panel-start" display-mode="float" width-scale="l">
+      <calcite-action-bar slot="action-bar">
+        <calcite-action data-action-id="layers" icon="layers" text="Layers"></calcite-action>
+        <calcite-action data-action-id="legend" icon="legend" text="Leyenda"></calcite-action>
+        <calcite-action data-action-id="timeExtent" icon="clock" text="Time extent"></calcite-action>
+        <calcite-action data-action-id="information" icon="information" text="Información"></calcite-action>
+      </calcite-action-bar>
+      <!-- Map-specific panels (each one provides a div for ArcGIS Maps SDK for JavaScript widgets) -->
+      <calcite-panel heading="Layers" height-scale="l" data-panel-id="layers" hidden>
+        <div id="layers-container"></div>
+      </calcite-panel>
+      <calcite-panel heading="Leyenda" height-scale="l" data-panel-id="legend" hidden>
+        <div id="legend-container"></div>
+      </calcite-panel>
+      <calcite-panel heading="Time Extent" height-scale="l" width-scale="l" data-panel-id="timeExtent" hidden>
+        <div id="timeExtent-container"></div>
+      </calcite-panel>
+
+      <!-- Info panel-->
+      <calcite-panel heading="Información" data-panel-id="information" hidden>
+        <div id="info-content">
+          <div id="item-description" class="info-panel">
+            Demo aplicación planet analitycs / insights
+          </div>
+
+        </div>
+      </calcite-panel>
+    </calcite-shell-panel>
+
+    <div id="viewDiv"></div>
+
+  </calcite-shell>
+
+  <!-- Buttons on UI -->
+  <button class="custom-button" id="drawButton">
+    <calcite-icon icon="polygon" scale="s"></calcite-icon><span class="hover-text" hidden> Dibujar AOI</span>
+  </button>
+  <button class="custom-button" id="timeSeriesButton" disabled>
+    <calcite-icon icon="graph-time-series" scale="s"></calcite-icon><span class="hover-text" hidden> Series de
+      tiempo</span>
+  </button>
+  <button class="custom-button" id="planetSubsButton">
+    <calcite-icon icon="satellite-0" scale="s"></calcite-icon><span class="hover-text" hidden> Planet analitycs</span>
+  </button>
 
   <!-- Dialog HTML for graphs -->
   <div id="timeSeriesDialog" class="dialog" style="display: none">
@@ -34,11 +78,15 @@
       <select id="indexSelect" class="custom-select">
         <option value="NDVI">NDVI</option>
         <option value="GNDVI">GNDVI</option>
+        <option value="EVI">EVI</option>
+        <option value="NDMI">NDMI</option>
+        <option value="SAVI">SAVI</option>
       </select>
       <button id="generateChartButton" class="custom-button">
         <calcite-icon icon="chart-gear" scale="s"></calcite-icon><span>Generar gráfica</span>
       </button>
-      <canvas id="timeSeriesChart"></canvas>
+      <calcite-loader label="Creando graficas..." hidden id="chartLoader"></calcite-loader>
+      <canvas id="timeSeriesChart" hidden></canvas>
     </div>
   </div>
   <!-- Dialog HTML for Planet analytics workflow -->
