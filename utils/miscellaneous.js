@@ -162,12 +162,16 @@ define([
   };
 
   function validateAOI(polygon) {
-    const geodesicArea = geometryEngine.geodesicArea(
-      polygon,
-      "square-kilometers"
-    );
-    const planarArea = geometryEngine.planarArea(polygon, "square-kilometers");
-    console.log(`geodesic area: ${geodesicArea}, planar area: ${planarArea}`);
+    const planarArea = geometryEngine.planarArea(polygon, "square-meters");
+    const numberOfPixels = planarArea / 900; // 30x30 m square pixels
+    const maxPixels = 2500 * 2500; // Maximum number of pixels
+    console.log(`planar area: ${planarArea}`);
+    if (numberOfPixels >= maxPixels) {
+      alert("Area excede el máximo permitido");
+      return false;
+    } else {
+      return true;
+    }
   }
 
   function generateDateIntervals(startDate, endDate) {

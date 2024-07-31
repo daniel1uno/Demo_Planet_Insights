@@ -144,8 +144,11 @@ require([
       if (event.state === "complete") {
         timeSeriesButton.disabled = false;
         aoiGeometry = event.graphic.geometry.rings;
-        miscellaneous.validateAOI(event.graphic.geometry);
-        console.log(aoiGeometry)
+        aioIsValid = miscellaneous.validateAOI(event.graphic.geometry);
+        if (!aioIsValid){
+          aoiGeometry= null;
+          graphicsLayer.removeAll()
+        }
       }
     });
   });
