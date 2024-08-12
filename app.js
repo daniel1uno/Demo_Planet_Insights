@@ -12,6 +12,9 @@ require([
   "esri/widgets/Swipe",
   "esri/widgets/Legend",
   "esri/TimeExtent",
+  "esri/geometry/Polygon",
+  "esri/geometry/support/webMercatorUtils",
+  "esri/Graphic",
   "PL_API_KEY.js", // this file is, of course, ignored by git
 ], function (
   Map,
@@ -27,6 +30,9 @@ require([
   Swipe,
   Legend,
   TimeExtent,
+  Polygon,
+  webMercatorUtils,
+  Graphic,
   PlanetAPIKey // the way im importing my key is NOT a good practice
 ) {
   const map = new Map({
@@ -39,8 +45,8 @@ require([
     center: [-74.29, 4.57], //centered in Colombia
     zoom: 6,
     padding: {
-      left: 49
-    }
+      left: 49,
+    },
   });
   view.ui.move("zoom", "bottom-right");
 
@@ -49,49 +55,49 @@ require([
     dragEnabled: true,
     visibilityAppearance: "checkbox",
     container: "layers-container",
-    listItemCreatedFunction: defineActions
-  });
-  
-  const legend = new Legend({
-    view,
-    container: "legend-container"
+    listItemCreatedFunction: defineActions,
   });
 
-  function defineActions(event){
+  const legend = new Legend({
+    view,
+    container: "legend-container",
+  });
+
+  function defineActions(event) {
     const item = event.item;
     item.actionsSections = [
       [
         {
           title: "Eliminar",
           icon: "trash",
-          id: "delete-layer"
+          id: "delete-layer",
         },
-      ]
+      ],
     ];
   }
 
-  layerList.on("trigger-action", async (event) => {    
+  layerList.on("trigger-action", async (event) => {
     // Capture the action id.
     const id = event.action.id;
-    const layer = event.item.layer
+    const layer = event.item.layer;
     if (id === "delete-layer") {
-      map.remove(layer)
-      console.log(`layer ${layer.title} was removed`)
-    } 
+      map.remove(layer);
+      console.log(`layer ${layer.title} was removed`);
+    }
   });
-
 
   view.when(() => {
     let activeWidget;
 
     const handleActionBarClick = ({ target }) => {
-     
       if (target.tagName !== "CALCITE-ACTION") {
         return;
       }
 
       if (activeWidget) {
-        document.querySelector(`[data-action-id=${activeWidget}]`).active = false;
+        document.querySelector(
+          `[data-action-id=${activeWidget}]`
+        ).active = false;
         document.querySelector(`[data-panel-id=${activeWidget}]`).hidden = true;
       }
 
@@ -105,18 +111,19 @@ require([
       }
     };
 
-    document.querySelector("calcite-action-bar").addEventListener("click", handleActionBarClick);
+    document
+      .querySelector("calcite-action-bar")
+      .addEventListener("click", handleActionBarClick);
     let actionBarExpanded = false;
 
-        document.addEventListener("calciteActionBarToggle", event => {
-          actionBarExpanded = !actionBarExpanded;
-          view.padding = {
-            left: actionBarExpanded ? 135 : 49
-          };
-        });
-
+    document.addEventListener("calciteActionBarToggle", (event) => {
+      actionBarExpanded = !actionBarExpanded;
+      view.padding = {
+        left: actionBarExpanded ? 135 : 49,
+      };
+    });
   });
-  
+
   const graphicsLayer = new GraphicsLayer({ listMode: "hide" });
   map.add(graphicsLayer);
 
@@ -129,7 +136,12 @@ require([
   const drawAoiButton = document.getElementById("drawButton");
   const timeSeriesButton = document.getElementById("timeSeriesButton");
   const subsButton = document.getElementById("planetSubsButton");
-  view.ui.add([drawAoiButton, timeSeriesButton, subsButton], "top-right");
+  const uploadGeoJsonButton = document.getElementById("uploadGeoJsonButton");
+
+  view.ui.add(
+    [drawAoiButton, uploadGeoJsonButton, timeSeriesButton, subsButton],
+    "top-right"
+  );
 
   let aoiGeometry;
 
@@ -145,13 +157,56 @@ require([
         timeSeriesButton.disabled = false;
         aoiGeometry = event.graphic.geometry.rings;
         aioIsValid = miscellaneous.validateAOI(event.graphic.geometry);
-        if (!aioIsValid){
-          aoiGeometry= null;
-          graphicsLayer.removeAll()
+        if (!aioIsValid) {
+          aoiGeometry = null;
+          graphicsLayer.removeAll();
+          timeSeriesButton.disabled = true;
         }
       }
     });
   });
+
+  uploadGeoJsonButton.addEventListener("click", () => {
+    document.getElementById("browseGeoJson").click();
+  });
+
+  // Function to handle GeoJSON file upload and add to graphics layer
+  document
+    .getElementById("browseGeoJson")
+    .addEventListener("change", function (event) {
+      var file = event.target.files[0];
+      if (file) {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          var geojson = JSON.parse(e.target.result);
+          geojson.features.forEach(function (feature) {
+            var geometry = new Polygon({
+              rings: feature.geometry.coordinates,
+            });
+    
+            // Convert from 4326 to 3857
+            var mapGeometry =
+              webMercatorUtils.geographicToWebMercator(geometry);
+           
+            var graphic = new Graphic({
+              geometry: mapGeometry,
+              symbol: miscellaneous.graphicsSymbol,
+            });
+
+            graphicsLayer.add(graphic);
+            aoiGeometry = mapGeometry.rings;
+            aioIsValid = miscellaneous.validateAOI(mapGeometry);
+            timeSeriesButton.disabled = false;
+            if (!aioIsValid) {
+              aoiGeometry = null;
+              graphicsLayer.removeAll();
+              timeSeriesButton.disabled = true;
+            }
+          });
+        };
+        reader.readAsText(file);
+      }
+    });
 
   timeSeriesButton.addEventListener("click", () => {
     const dialog = document.getElementById("timeSeriesDialog");
@@ -160,12 +215,58 @@ require([
     dialog.style.display = "block";
     miscellaneous.makeDialogDraggable(dialog, dialogHeader);
 
-    // Add event listeners for the button
+    // event listeners for the tab navigation
+    const spectralIndicesTab = document.getElementById("spectralIndicesTab")
+    const colorCompositesTab = document.getElementById("colorCompositesTab")
+
+    spectralIndicesTab.addEventListener("click", function () {
+      miscellaneous.switchTab('espectrales', 'bandas', this);
+    })
+
+    colorCompositesTab.addEventListener("click", function () {
+      miscellaneous.switchTab('bandas', 'espectrales', this);
+    })
+    // Add event listeners for the action buttons
+    document.getElementById("getImages").addEventListener("click", ()=>{
+      // Get the selected date range
+      const startDate = document.getElementById("startDate").value;
+      const endDate = document.getElementById("endDate").value;
+      // Validate date range
+      const isDateRangeValid = miscellaneous.validateDateRange(startDate, endDate)
+      if (!isDateRangeValid){return}  
+
+      const composite = document.getElementById("bandCombination").value;
+      console.log(composite)
+      try {
+        const intervals = miscellaneous.generateDateIntervals(
+          startDate,
+          endDate
+        );
+        intervals.forEach(
+          async (interval) =>
+            await miscellaneous.addWmtsLayer(
+              view,
+              composite,
+              interval,
+              aoiGeometry
+            )
+        );
+        console.log(`startDate:${startDate}, endDate :  ${endDate}`);
+        const timeExtent = new TimeExtent({
+          start: new Date(startDate),
+          end: new Date(endDate),
+        });
+        miscellaneous.addTimeSlider(timeExtent, view);
+      }
+      catch{
+
+      }
+    })
     document
       .getElementById("generateChartButton")
       .addEventListener("click", async () => {
         generateChartButton.disabled = true;
-        const loader = document.getElementById("chartLoader")
+        const loader = document.getElementById("chartLoader");
         loader.hidden = false;
         try {
           const indexSelect = document.getElementById("indexSelect").value;
@@ -175,14 +276,8 @@ require([
           const endDate = document.getElementById("endDate").value;
 
           // Validate date range
-          if (
-            !startDate ||
-            !endDate ||
-            new Date(startDate) > new Date(endDate)
-          ) {
-            alert("Please select a valid date range.");
-            return;
-          }
+          const isDateRangeValid = miscellaneous.validateDateRange(startDate, endDate)
+          if (!isDateRangeValid){return}  
           // Request body for statistics api
           const body = JSON.stringify({
             input: {
@@ -256,16 +351,16 @@ require([
                 aoiGeometry
               )
           );
-          console.log(`startDate:${startDate}, endDate :  ${endDate}`)
+          console.log(`startDate:${startDate}, endDate :  ${endDate}`);
           const timeExtent = new TimeExtent({
             start: new Date(startDate),
-            end: new Date(endDate)
+            end: new Date(endDate),
           });
-          miscellaneous.addTimeSlider(timeExtent, view)
+          miscellaneous.addTimeSlider(timeExtent, view);
         } catch (error) {
           console.error("Error fetching statistics:", error);
         } finally {
-          loader.hidden = true
+          loader.hidden = true;
           generateChartButton.disabled = false;
         }
       });

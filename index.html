@@ -52,6 +52,10 @@
   <button class="custom-button" id="drawButton">
     <calcite-icon icon="polygon" scale="s"></calcite-icon><span class="hover-text" hidden> Dibujar AOI</span>
   </button>
+  <input type="file" accept=".geojson" id="browseGeoJson" hidden>
+  <button class="custom-button" id="uploadGeoJsonButton">
+    <calcite-icon icon="folder-open" scale="s"></calcite-icon><span class="hover-text" hidden> Cargar AOI</span>
+  </button>
   <button class="custom-button" id="timeSeriesButton" disabled>
     <calcite-icon icon="graph-time-series" scale="s"></calcite-icon><span class="hover-text" hidden> Series de
       tiempo</span>
@@ -74,19 +78,41 @@
       <label for="endDate">Final:</label>
       <input type="date" id="endDate" name="endDate" required />
       <br />
-      <label for="indexSelect">Seleccione un índice:</label>
-      <select id="indexSelect" class="custom-select">
-        <option value="NDVI">NDVI</option>
-        <option value="GNDVI">GNDVI</option>
-        <option value="EVI">EVI</option>
-        <option value="NDMI">NDMI</option>
-        <option value="SAVI">SAVI</option>
-      </select>
-      <button id="generateChartButton" class="custom-button">
-        <calcite-icon icon="chart-gear" scale="s"></calcite-icon><span>Generar gráfica</span>
-      </button>
-      <calcite-loader label="Creando graficas..." hidden id="chartLoader"></calcite-loader>
-      <canvas id="timeSeriesChart" hidden></canvas>
+      <!-- Tab Navigation -->
+      <div class="tab-container">
+        <button class="tab-button active" id="spectralIndicesTab">Índices Espectrales</button>
+        <button class="tab-button" id="colorCompositesTab">Combinación de Bandas</button>
+      </div>
+
+      <!-- Tab Content -->
+      <div id="espectrales" class="tab-content" style="display: block;">
+        <label for="indexSelect">Seleccione un índice:</label>
+        <select id="indexSelect" class="custom-select">
+          <option value="NDVI">NDVI</option>
+          <option value="GNDVI">GNDVI</option>
+          <option value="EVI">EVI</option>
+          <option value="NDMI">NDMI</option>
+          <option value="SAVI">SAVI</option>
+        </select>
+        <button id="generateChartButton" class="custom-button">
+          <calcite-icon icon="chart-gear" scale="s"></calcite-icon><span>Generar gráfica / cargar imágenes</span>
+        </button>
+        <calcite-loader label="Creando graficas..." hidden id="chartLoader"></calcite-loader>
+        <canvas id="timeSeriesChart" hidden></canvas>
+      </div>
+
+      <div id="bandas" class="tab-content" style="display: none;">
+        <label for="bandCombination">Seleccione una combinación de bandas:</label>
+        <select id="bandCombination" class="custom-select">
+          <option value="TRUE-COLOR-S2L2A">Color verdadero</option>
+          <option value="FALSE-COLOR">Falso color</option>
+        </select>
+        <button id="getImages" class="custom-button">
+          <calcite-icon icon="color-coded-map" scale="s"></calcite-icon><span>Cargar imágenes</span>
+        </button>
+      </div>
+
+
     </div>
   </div>
   <!-- Dialog HTML for Planet analytics workflow -->

@@ -112,7 +112,7 @@ define([
 
     const createAndAddLayer = async (layerId, customParams) => {
       const layer = new WMTSLayer({
-        url: "https://services.sentinel-hub.com/ogc/wmts/c81e0966-8e7c-4f23-951c-04a33a8c72a7?", // url to the service
+        url: "https://services.sentinel-hub.com/ogc/wmts/52637ca1-05fe-41df-b380-db2f87634c51?", // url to the service
         activeLayer: {
           id: layerId,
         },
@@ -165,7 +165,7 @@ define([
     const planarArea = geometryEngine.planarArea(polygon, "square-meters");
     const numberOfPixels = planarArea / 900; // 30x30 m square pixels
     const maxPixels = 2500 * 2500; // Maximum number of pixels
-    console.log(`planar area: ${planarArea}`);
+
     if (numberOfPixels >= maxPixels) {
       alert("Area excede el máximo permitido");
       return false;
@@ -228,6 +228,29 @@ define([
       container: "timeExtent-container",
     });
   }
+
+  function switchTab(showTabId, hideTabId, activeButton) {
+    document.getElementById(showTabId).style.display = "block";
+    document.getElementById(hideTabId).style.display = "none";
+
+    // Remove the active class from all tab buttons
+    const tabButtons = document.getElementsByClassName("tab-button");
+    for (let i = 0; i < tabButtons.length; i++) {
+      tabButtons[i].classList.remove("active");
+    }
+
+    // Add the active class to the clicked button
+    activeButton.classList.add("active");
+  }
+
+  function validateDateRange(startDate, endDate) {
+    if (!startDate || !endDate || new Date(startDate) > new Date(endDate)) {
+      alert("Please select a valid date range.");
+      return false;
+    } else {
+      return true;
+    }
+  }
   return {
     generateChart,
     proccessStatisticsData,
@@ -238,5 +261,7 @@ define([
     generateDateIntervals,
     addTimeSlider,
     validateAOI,
+    switchTab,
+    validateDateRange,
   };
 });
