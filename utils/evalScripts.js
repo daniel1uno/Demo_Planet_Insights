@@ -257,6 +257,5 @@ define(function () {
         dataMask: [sample.dataMask * validNDCIMask],
       };
     }`,
-
   };
 });
